@@ -1,0 +1,18 @@
+{
+  "projectId": "worvk-486221",
+  "bucket": "worvgrip-slides",
+  "domain": "slides.worvgrip.com",
+  "region": "asia-northeast3",
+  "slugLength": 12,
+  "defaultAuthor": "WoRV",
+  "defaultTags": [
+    "community"
+  ],
+  "hub": {
+    "enabled": true,
+    "title": "publish-slides gallery",
+    "description": "HTML slide decks shared by people using the publish-slides skill.",
+    "catalogPath": "catalog.json",
+    "indexPath": "index.html"
+  }
+}

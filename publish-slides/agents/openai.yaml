@@ -1,0 +1,4 @@
+interface:
+  display_name: "Publish Slides"
+  short_description: "Publish local HTML slide decks to slides.worvgrip.com."
+  default_prompt: "Publish this HTML slide deck with $publish-slides and return the deck URL plus gallery URL."

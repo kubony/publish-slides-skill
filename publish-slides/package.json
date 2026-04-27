@@ -1,0 +1,25 @@
+{
+  "name": "publish-slides-skill",
+  "version": "0.1.0",
+  "description": "Codex/Claude skill for publishing local HTML slide decks to slides.worvgrip.com.",
+  "type": "module",
+  "bin": {
+    "publish-slides": "./scripts/publish-slides.mjs"
+  },
+  "scripts": {
+    "test": "node --test",
+    "dry-run": "node ./scripts/publish-slides.mjs --dry-run"
+  },
+  "keywords": [
+    "codex-skill",
+    "claude-code-skill",
+    "slides",
+    "html-slides",
+    "gcs",
+    "worvgrip"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  }
+}
