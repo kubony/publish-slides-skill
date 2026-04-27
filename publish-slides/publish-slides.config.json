@@ -14,5 +14,9 @@
     "description": "HTML slide decks shared by people using the publish-slides skill.",
     "catalogPath": "catalog.json",
     "indexPath": "index.html"
+  },
+  "upload": {
+    "mode": "api",
+    "apiEndpoint": "https://publish-slides-api-qnxdv5m4qa-du.a.run.app"
   }
 }

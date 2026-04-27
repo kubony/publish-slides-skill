@@ -4,9 +4,17 @@ import { existsSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  finalizeApiUpload,
+  initApiUpload,
+  savedEditToken,
+  uploadFilesToSignedUrls,
+  uploadModeForConfig
+} from '../src/api-upload.mjs';
 import { cleanStagedHtml } from '../src/clean.mjs';
 import { defaultAuthor } from '../src/defaults.mjs';
 import { detectDeck, urlForEntry, UserFacingError } from '../src/detect.mjs';
+import { listFiles } from '../src/files.mjs';
 import {
   buildCatalogEntry,
   emptyCatalog,
@@ -39,6 +47,8 @@ Options:
   --description <text>      Add a short deck description for the hub
   --tag <tag[,tag]>         Add hub tags; may be repeated
   --thumbnail <path>        Relative thumbnail path inside the deck folder
+  --edit-token <token>      Token returned by a prior API publish for republish
+  --upload-mode <mode>      Force upload mode: api or gcloud
   --config <path>           Use a specific publish-slides config file
   -h, --help                Show this help
 `;
@@ -54,7 +64,9 @@ function parseArgs(argv) {
     author: '',
     description: '',
     tags: [],
-    thumbnail: ''
+    thumbnail: '',
+    editToken: '',
+    uploadMode: ''
   };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -76,6 +88,10 @@ function parseArgs(argv) {
       options.tags.push(argv[++i] || '');
     } else if (arg === '--thumbnail') {
       options.thumbnail = argv[++i] || '';
+    } else if (arg === '--edit-token') {
+      options.editToken = argv[++i] || '';
+    } else if (arg === '--upload-mode') {
+      options.uploadMode = argv[++i] || '';
     } else if (arg.startsWith('--')) {
       throw new UserFacingError(`Unknown option: ${arg}`);
     } else if (!options.deckPath) {
@@ -160,18 +176,39 @@ async function main() {
   const deck = await detectDeck(options.deckPath);
   options.author = await defaultAuthor({ explicitAuthor: options.author, config, cwd: process.cwd() });
   if (!options.dryRun) {
-    await ensureGcloudReady(config);
+    const mode = uploadModeForConfig(config, options.uploadMode);
+    if (mode === 'gcloud') {
+      await ensureGcloudReady(config);
+    } else if (mode !== 'api') {
+      throw new UserFacingError(`Unsupported upload mode: ${mode}`);
+    }
   }
-  const slug = await chooseSlug(config, options.slug, options.dryRun);
   const stageDir = await mkdtemp(path.join(os.tmpdir(), 'publish-slides-'));
 
   try {
     await cp(deck.sourceDir, stageDir, { recursive: true, force: true });
     const cleanedFiles = deck.cleanupHtml ? await cleanStagedHtml(stageDir) : 0;
+    const mode = uploadModeForConfig(config, options.uploadMode);
+    let apiUpload = null;
+    let slug = '';
+    if (!options.dryRun && mode === 'api') {
+      const files = await listFiles(stageDir);
+      const editToken = options.editToken || process.env.PUBLISH_SLIDES_EDIT_TOKEN || await savedEditToken(options.slug);
+      apiUpload = await initApiUpload(config, {
+        requestedSlug: options.slug,
+        editToken,
+        files
+      });
+      slug = apiUpload.slug;
+      options.editToken = editToken;
+    } else {
+      slug = await chooseSlug(config, options.slug, options.dryRun);
+    }
+
     const url = urlForEntry({ domain: config.domain, slug, entryRel: deck.entryRel });
     const now = new Date();
     let catalog = emptyCatalog(config, now);
-    if (!options.dryRun && config.hub.enabled) {
+    if (!options.dryRun && mode === 'gcloud' && config.hub.enabled) {
       catalog = await loadRemoteCatalog(config);
     }
     const existingEntry = catalog.decks.find((entry) => entry.slug === slug) || null;
@@ -186,9 +223,20 @@ async function main() {
     });
     const updatedCatalog = config.hub.enabled ? upsertCatalogEntry(catalog, catalogEntry, now) : catalog;
 
+    let apiResult = null;
     if (!options.dryRun) {
-      await uploadStage(config, stageDir, slug);
-      if (config.hub.enabled) {
+      if (mode === 'api') {
+        await uploadFilesToSignedUrls(stageDir, apiUpload.files);
+        apiResult = await finalizeApiUpload(config, {
+          slug,
+          editToken: options.editToken,
+          catalogEntry,
+          entryRel: deck.entryRel
+        });
+      } else {
+        await uploadStage(config, stageDir, slug);
+      }
+      if (mode === 'gcloud' && config.hub.enabled) {
         await uploadHub(config, updatedCatalog);
       }
     }
@@ -196,6 +244,8 @@ async function main() {
     console.log(JSON.stringify({
       ok: true,
       dryRun: options.dryRun,
+      uploadMode: mode,
+      apiEndpoint: mode === 'api' ? (config.upload?.apiEndpoint || process.env.PUBLISH_SLIDES_API_URL || null) : null,
       configPath,
       sourceDir: deck.sourceDir,
       format: deck.format,
@@ -204,12 +254,14 @@ async function main() {
       cleanedFiles,
       bucket: config.bucket,
       slug,
-      url,
+      url: apiResult?.url || url,
       hubEnabled: config.hub.enabled,
-      hubUrl: config.hub.enabled ? hubUrl(config) : null,
+      hubUrl: apiResult?.hubUrl || (config.hub.enabled ? hubUrl(config) : null),
+      editToken: apiResult?.editToken || null,
+      editTokenStore: apiResult?.editToken ? process.env.PUBLISH_SLIDES_TOKEN_STORE || '~/.config/publish-slides/tokens.json' : null,
       catalogPath: config.hub.enabled ? config.hub.catalogPath : null,
-      catalogEntry,
-      catalogDeckCount: config.hub.enabled ? updatedCatalog.decks.length : null
+      catalogEntry: apiResult?.catalogEntry || catalogEntry,
+      catalogDeckCount: apiResult?.catalogDeckCount || (config.hub.enabled ? updatedCatalog.decks.length : null)
     }, null, 2));
   } finally {
     await rm(stageDir, { recursive: true, force: true });

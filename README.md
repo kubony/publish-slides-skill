@@ -1,12 +1,12 @@
 # publish-slides-skill
 
-Codex/Claude Code skill for publishing local HTML slide decks to the WoRV Grip public gallery:
+Codex/Claude Code skill for publishing local HTML slide decks to the WoRV Grip public gallery without giving users GCS permissions.
 
 - Gallery: https://slides.worvgrip.com/index.html
-- Bucket: `gs://worvgrip-slides`
-- Project: `worvk-486221`
+- Hosted upload API: https://publish-slides-api-qnxdv5m4qa-du.a.run.app
+- Bucket behind the API: `gs://worvgrip-slides`
 
-The repository contains a self-contained skill in `publish-slides/`: it bundles the publisher CLI, default config, and detection/cleanup/upload logic.
+The repository contains a self-contained skill in `publish-slides/`: it bundles the publisher CLI, default public API config, and detection/cleanup/upload logic.
 
 ## Install for Codex
 
@@ -32,18 +32,18 @@ cd ~/projects/publish-slides-skill
 ./install.sh claude
 ```
 
-Or install both:
+Install both:
 
 ```bash
 ./install.sh both
 ```
 
-## Requirements
+## Requirements for normal users
 
 - Node.js 20+
-- `gcloud` installed
-- `gcloud auth login` completed
-- IAM permission to read/write `gs://worvgrip-slides`
+- Network access to `https://publish-slides-api-qnxdv5m4qa-du.a.run.app`
+
+Normal users do **not** need `gcloud`, Google Cloud accounts, or GCS IAM permissions.
 
 ## Use
 
@@ -61,10 +61,20 @@ node ~/.codex/skills/publish-slides/scripts/publish-slides.mjs /path/to/my/deck
 
 Optional metadata is not required. The CLI auto-fills title, author, tags, and slug.
 
-Stable republish/update:
+Stable republish/update from the same machine:
 
 ```bash
 node ~/.codex/skills/publish-slides/scripts/publish-slides.mjs --slug my-stable-slug /path/to/my/deck
+```
+
+The first publish returns an `editToken` and stores it locally in `~/.config/publish-slides/tokens.json`. Keep that token private; it authorizes future overwrites of the same slug.
+
+## Admin fallback
+
+Admins with GCS access can bypass the public API:
+
+```bash
+node ~/.codex/skills/publish-slides/scripts/publish-slides.mjs --upload-mode gcloud /path/to/my/deck
 ```
 
 ## Validate locally

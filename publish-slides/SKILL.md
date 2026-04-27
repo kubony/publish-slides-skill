@@ -1,6 +1,6 @@
 ---
 name: publish-slides
-description: Publish a local HTML slide deck folder to the WoRV Grip public slide hub at slides.worvgrip.com, upload videos/assets to the configured Google Cloud Storage bucket, update the shared gallery catalog, and return shareable deck and gallery URLs. Use when the user says publish-slides, publish slides, share this deck, upload this deck, deploy deck, or asks to put an HTML/slides-grab presentation on slides.worvgrip.com.
+description: Publish a local HTML slide deck folder to the WoRV Grip public slide hub at slides.worvgrip.com without requiring the user to have GCS permissions. The skill uploads videos/assets through the hosted publish-slides Cloud Run API, updates the shared gallery catalog, and returns shareable deck and gallery URLs. Use when the user says publish-slides, publish slides, share this deck, upload this deck, deploy deck, or asks to put an HTML/slides-grab presentation on slides.worvgrip.com.
 ---
 
 # publish-slides
@@ -33,8 +33,10 @@ Publish a local HTML slide deck to the shared WoRV Grip slide hub.
    - `--tag <tag[,tag]>` (repeat when useful)
    - `--thumbnail <relative-path>`
    - `--slug <slug>` only when the user asks for a stable republish/update slug
+   - `--edit-token <token>` only when republishing a slug from another machine
 5. If the user only wants validation, add `--dry-run`.
 6. Return the JSON result's `url` and `hubUrl` fields.
+7. Treat `editToken` as sensitive. The CLI saves it locally for future republish attempts.
 
 ## Supported deck inputs
 
@@ -44,17 +46,17 @@ Publish a local HTML slide deck to the shared WoRV Grip slide hub.
 
 ## Publishing target
 
-Default bundled config publishes to:
+Default bundled config publishes through the hosted public API:
 
 - domain: `slides.worvgrip.com`
-- bucket: `gs://worvgrip-slides`
-- project: `worvk-486221`
-- hub: `https://slides.worvgrip.com/index.html`
+- gallery: `https://slides.worvgrip.com/index.html`
+- API: `https://publish-slides-api-qnxdv5m4qa-du.a.run.app`
 
 ## Requirements
 
 - Node.js 20+
-- `gcloud` installed and authenticated
-- Google Cloud IAM permission to read/write `gs://worvgrip-slides`
+- Network access to the hosted publish-slides API
 
-The CLI removes known `slides-grab` local-only injection tags before upload. Public URLs are intentionally public; v1 access control is by random slug obscurity only.
+Users do **not** need `gcloud` or direct GCS permissions. Admins can force direct bucket publishing with `--upload-mode gcloud` when they have GCS IAM access.
+
+The CLI removes known `slides-grab` local-only injection tags before upload. Public URLs are intentionally public; v1 access control is by random slug obscurity plus edit-token overwrite protection.
