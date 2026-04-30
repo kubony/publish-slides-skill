@@ -50,7 +50,7 @@ Default bundled config publishes through the hosted public API:
 
 - domain: `slides.worvgrip.com`
 - gallery: `https://slides.worvgrip.com/index.html`
-- API: `https://publish-slides-api-qnxdv5m4qa-du.a.run.app`
+- API: `https://publish-slides-api-329120583532.asia-northeast3.run.app`
 
 ## Requirements
 

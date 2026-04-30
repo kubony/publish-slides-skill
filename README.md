@@ -3,8 +3,8 @@
 Codex/Claude Code skill for publishing local HTML slide decks to the WoRV Grip public gallery without giving users GCS permissions.
 
 - Gallery: https://slides.worvgrip.com/index.html
-- Hosted upload API: https://publish-slides-api-qnxdv5m4qa-du.a.run.app
-- Bucket behind the API: `gs://worvgrip-slides`
+- Hosted upload API: https://publish-slides-api-329120583532.asia-northeast3.run.app
+- Bucket behind the API: `gs://ainative-worvgrip-slides`
 
 The repository contains a self-contained skill in `publish-slides/`: it bundles the publisher CLI, default public API config, and detection/cleanup/upload logic.
 
@@ -41,7 +41,7 @@ Install both:
 ## Requirements for normal users
 
 - Node.js 20+
-- Network access to `https://publish-slides-api-qnxdv5m4qa-du.a.run.app`
+- Network access to `https://publish-slides-api-329120583532.asia-northeast3.run.app`
 
 Normal users do **not** need `gcloud`, Google Cloud accounts, or GCS IAM permissions.
 

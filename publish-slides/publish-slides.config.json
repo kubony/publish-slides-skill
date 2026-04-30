@@ -1,6 +1,4 @@
 {
-  "projectId": "worvk-486221",
-  "bucket": "worvgrip-slides",
   "domain": "slides.worvgrip.com",
   "region": "asia-northeast3",
   "slugLength": 12,
@@ -17,6 +15,8 @@
   },
   "upload": {
     "mode": "api",
-    "apiEndpoint": "https://publish-slides-api-qnxdv5m4qa-du.a.run.app"
-  }
+    "apiEndpoint": "https://publish-slides-api-329120583532.asia-northeast3.run.app"
+  },
+  "projectId": "ainative-494808",
+  "bucket": "ainative-worvgrip-slides"
 }
