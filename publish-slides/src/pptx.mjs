@@ -161,6 +161,29 @@ async function generateThumbnail(pdfPath, outputDir) {
   return '';
 }
 
+async function generateSlideImages(pdfPath, outputDir) {
+  const slidesDir = path.join(outputDir, 'slides');
+  await mkdir(slidesDir, { recursive: true });
+  const base = path.join(slidesDir, 'page');
+  if (!(await tryExec('pdftoppm', ['-png', '-r', '144', pdfPath, base]))) return [];
+
+  const outputs = (await readdir(slidesDir))
+    .map((name) => {
+      const match = name.match(/^page-(\d+)\.png$/i);
+      return match ? { name, index: Number(match[1]) } : null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.index - b.index);
+
+  const relPaths = [];
+  for (let i = 0; i < outputs.length; i += 1) {
+    const targetName = `slide-${String(i + 1).padStart(3, '0')}.png`;
+    await rename(path.join(slidesDir, outputs[i].name), path.join(slidesDir, targetName));
+    relPaths.push(`slides/${targetName}`);
+  }
+  return relPaths;
+}
+
 async function countSlides(inputPath, pdfPath) {
   if (await tryExec('pdfinfo', [pdfPath])) {
     try {
@@ -183,9 +206,11 @@ async function countSlides(inputPath, pdfPath) {
   }
 }
 
-export function renderPptxViewerHtml({ title, slideCount = null } = {}) {
+export function renderPptxViewerHtml({ title, slideCount = null, imageSlides = [] } = {}) {
   const safeTitle = escapeHtml(title || 'Untitled presentation');
   const slideLabel = Number.isInteger(slideCount) ? `${slideCount} slides` : 'PPTX deck';
+  const slidesJson = JSON.stringify(imageSlides).replace(/</g, '\\u003c');
+  const hasImages = imageSlides.length > 0;
   return `<!doctype html>
 <html lang="ko">
 <head>
@@ -194,103 +219,102 @@ export function renderPptxViewerHtml({ title, slideCount = null } = {}) {
   <meta name="publish-slides-format" content="pptx">
   <title>${safeTitle}</title>
   <style>
-    :root { color-scheme: dark; --bg: #070a12; --panel: #101827; --line: rgba(255,255,255,.12); --text: #edf2ff; --muted: #9aa7bd; --accent: #87f5ff; }
+    :root { color-scheme: dark; --bg: #070a12; --line: rgba(255,255,255,.14); --text: #edf2ff; --muted: #9aa7bd; --accent: #87f5ff; }
     * { box-sizing: border-box; }
     html, body { height: 100%; }
-    body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: radial-gradient(circle at top left, rgba(135,245,255,.18), transparent 28rem), var(--bg); color: var(--text); }
-    .page { min-height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr); }
-    header { display: flex; gap: 16px; align-items: center; justify-content: space-between; padding: 18px 22px; border-bottom: 1px solid var(--line); background: rgba(7,10,18,.88); backdrop-filter: blur(14px); }
-    .title { min-width: 0; }
-    .eyebrow { color: var(--accent); font-size: 12px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
-    h1 { margin: 4px 0 0; font-size: clamp(22px, 4vw, 38px); line-height: 1.08; letter-spacing: -.04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .meta { color: var(--muted); font-size: 13px; margin-top: 6px; }
-    .actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
-    button, a.button { border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.06); color: var(--text); padding: 10px 13px; font: inherit; font-weight: 750; text-decoration: none; cursor: pointer; }
-    button:hover, a.button:hover { border-color: rgba(135,245,255,.65); background: rgba(135,245,255,.12); }
-    .primary { background: var(--text) !important; color: #0b1020 !important; }
-    .viewer-shell { min-height: 0; padding: 14px; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 10px; }
-    .tabs { display: flex; gap: 8px; flex-wrap: wrap; }
-    .tab[aria-pressed="true"] { border-color: rgba(135,245,255,.75); color: var(--accent); }
-    .viewer { min-height: 0; border: 1px solid var(--line); border-radius: 18px; overflow: hidden; background: #0b1020; box-shadow: 0 24px 80px rgba(0,0,0,.32); }
-    iframe, object { width: 100%; height: 100%; min-height: min(72vh, 900px); border: 0; display: block; background: white; }
+    body { margin: 0; overflow: hidden; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: radial-gradient(circle at top left, rgba(135,245,255,.10), transparent 28rem), var(--bg); color: var(--text); }
+    .topbar { position: fixed; z-index: 10; top: 12px; left: 12px; right: 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; pointer-events: none; }
+    .title, .actions, .nav { pointer-events: auto; border: 1px solid var(--line); background: rgba(7,10,18,.72); backdrop-filter: blur(14px); border-radius: 999px; box-shadow: 0 12px 40px rgba(0,0,0,.22); }
+    .title { min-width: 0; max-width: min(54vw, 680px); padding: 9px 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 14px; font-weight: 800; }
+    .title small { margin-left: 8px; color: var(--muted); font-weight: 650; }
+    .actions { display: flex; gap: 4px; padding: 4px; }
+    button, a.button { border: 0; border-radius: 999px; background: transparent; color: var(--text); padding: 8px 10px; font: inherit; font-size: 13px; font-weight: 760; text-decoration: none; cursor: pointer; }
+    button:hover, a.button:hover { background: rgba(255,255,255,.10); }
+    .stage { width: 100vw; height: 100vh; display: grid; place-items: center; padding: 58px 24px 24px; }
+    .slide { position: relative; width: min(100%, calc((100vh - 92px) * 16 / 9)); max-width: 1600px; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; background: #fff; box-shadow: 0 28px 90px rgba(0,0,0,.45); }
+    .slide img, .slide object, .slide iframe { width: 100%; height: 100%; border: 0; display: block; background: white; }
+    .slide img { object-fit: contain; }
+    .nav { position: fixed; z-index: 10; left: 50%; bottom: 14px; transform: translateX(-50%); display: ${hasImages ? 'flex' : 'none'}; align-items: center; gap: 4px; padding: 4px; }
+    .counter { min-width: 74px; text-align: center; color: var(--muted); font-size: 13px; font-weight: 760; }
     .fallback { padding: 28px; color: var(--muted); }
-    .hidden { display: none; }
-    body:fullscreen .viewer-shell, .viewer-shell:fullscreen { padding: 0; background: #000; }
-    .viewer-shell:fullscreen .tabs { display: none; }
-    .viewer-shell:fullscreen .viewer { border: 0; border-radius: 0; height: 100vh; }
-    .viewer-shell:fullscreen iframe, .viewer-shell:fullscreen object { min-height: 100vh; }
+    body:fullscreen .stage, .stage:fullscreen { padding: 0; background: #000; }
+    body:fullscreen .slide, .stage:fullscreen .slide { width: 100vw; height: 100vh; max-width: none; border-radius: 0; box-shadow: none; }
     @media (max-width: 720px) {
-      header { align-items: flex-start; flex-direction: column; }
-      h1 { white-space: normal; }
-      .actions { justify-content: flex-start; }
-      .viewer-shell { padding: 8px; }
+      .topbar { align-items: stretch; flex-direction: column; }
+      .title { max-width: none; }
+      .actions { align-self: flex-end; flex-wrap: wrap; justify-content: flex-end; }
+      .stage { padding: 110px 8px 56px; }
+      .slide { width: 100%; }
     }
   </style>
 </head>
 <body>
-  <div class="page">
-    <header>
-      <div class="title">
-        <div class="eyebrow">publish-slides · PPTX</div>
-        <h1>${safeTitle}</h1>
-        <div class="meta">원본 PPTX를 보존하고 PDF 미리보기로 표시합니다 · ${escapeHtml(slideLabel)}</div>
-      </div>
-      <nav class="actions" aria-label="presentation actions">
-        <a class="button primary" href="source.pptx" download>원본 PPTX 다운로드</a>
-        <a class="button" href="slides.pdf" target="_blank" rel="noopener">PDF 새 탭</a>
-        <a class="button" id="office-link" href="#" target="_blank" rel="noopener">PowerPoint Online</a>
-        <button id="fullscreen" type="button">전체화면</button>
-      </nav>
-    </header>
-    <main class="viewer-shell" id="viewer-shell">
-      <div class="tabs" role="group" aria-label="viewer mode">
-        <button class="tab" type="button" data-view="pdf" aria-pressed="true">PDF 뷰어</button>
-        <button class="tab" type="button" data-view="office" aria-pressed="false">PowerPoint Online 뷰어</button>
-      </div>
-      <section class="viewer" id="pdf-panel">
-        <object data="slides.pdf#view=FitH&toolbar=1&navpanes=0" type="application/pdf">
+  <div class="topbar">
+    <div class="title" title="${safeTitle}">${safeTitle}<small>${escapeHtml(slideLabel)}</small></div>
+    <nav class="actions" aria-label="presentation actions">
+      <a class="button" href="source.pptx" download>PPTX</a>
+      <a class="button" href="slides.pdf" target="_blank" rel="noopener">PDF</a>
+      <a class="button" id="office-link" href="#" target="_blank" rel="noopener">Online</a>
+      <button id="fullscreen" type="button">전체</button>
+    </nav>
+  </div>
+  <main class="stage" id="stage">
+    <section class="slide" aria-label="${safeTitle}">
+      ${hasImages ? '<img id="slide-image" src="" alt="presentation slide">' : `<object data="slides.pdf#view=FitH&toolbar=0&navpanes=0" type="application/pdf">
           <div class="fallback">
             브라우저가 PDF 내장 뷰어를 지원하지 않습니다.
             <a href="slides.pdf">PDF를 직접 열어주세요.</a>
           </div>
-        </object>
-      </section>
-      <section class="viewer hidden" id="office-panel" aria-live="polite">
-        <iframe id="office-frame" title="${safeTitle} PowerPoint Online viewer" allowfullscreen></iframe>
-      </section>
-    </main>
+        </object>`}
+    </section>
+  </main>
+  <div class="nav" aria-label="slide navigation">
+    <button id="prev" type="button" aria-label="Previous slide">‹</button>
+    <div class="counter"><span id="current">1</span> / <span id="total">1</span></div>
+    <button id="next" type="button" aria-label="Next slide">›</button>
   </div>
   <script>
+    const slides = ${slidesJson};
     const pptxUrl = new URL('source.pptx', window.location.href).href;
     const officeUrl = 'https://view.officeapps.live.com/op/embed.aspx?src=' + encodeURIComponent(pptxUrl);
     const officeLink = document.getElementById('office-link');
-    const officeFrame = document.getElementById('office-frame');
-    const pdfPanel = document.getElementById('pdf-panel');
-    const officePanel = document.getElementById('office-panel');
-    const tabs = Array.from(document.querySelectorAll('.tab'));
-    const shell = document.getElementById('viewer-shell');
+    const stage = document.getElementById('stage');
+    const image = document.getElementById('slide-image');
+    const current = document.getElementById('current');
+    const total = document.getElementById('total');
+    let index = 0;
 
     officeLink.href = officeUrl;
+    if (total) total.textContent = String(slides.length || 1);
 
-    function show(view) {
-      const office = view === 'office';
-      pdfPanel.classList.toggle('hidden', office);
-      officePanel.classList.toggle('hidden', !office);
-      if (office && !officeFrame.src) officeFrame.src = officeUrl;
-      for (const tab of tabs) tab.setAttribute('aria-pressed', String(tab.dataset.view === view));
+    function showSlide(nextIndex) {
+      if (!image || !slides.length) return;
+      index = (nextIndex + slides.length) % slides.length;
+      image.src = slides[index];
+      image.alt = '${safeTitle} ' + (index + 1);
+      if (current) current.textContent = String(index + 1);
     }
 
-    for (const tab of tabs) {
-      tab.addEventListener('click', () => show(tab.dataset.view));
-    }
+    document.getElementById('prev')?.addEventListener('click', () => showSlide(index - 1));
+    document.getElementById('next')?.addEventListener('click', () => showSlide(index + 1));
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowLeft') showSlide(index - 1);
+      if (event.key === 'ArrowRight' || event.key === ' ') {
+        event.preventDefault();
+        showSlide(index + 1);
+      }
+      if (event.key.toLowerCase() === 'f') document.getElementById('fullscreen')?.click();
+    });
 
     document.getElementById('fullscreen')?.addEventListener('click', async () => {
       if (document.fullscreenElement) {
         await document.exitFullscreen();
       } else {
-        await shell.requestFullscreen();
+        await stage.requestFullscreen();
       }
     });
+
+    showSlide(0);
   </script>
 </body>
 </html>
@@ -313,12 +337,17 @@ export async function preparePptxDeck(inputPath, outputDir) {
   await copyFile(sourcePath, path.join(outputDir, 'source.pptx'));
   const pdfPath = await convertPptxToPdf(sourcePath, outputDir);
   const slideCount = await countSlides(sourcePath, pdfPath);
-  await generateThumbnail(pdfPath, outputDir);
+  const imageSlides = await generateSlideImages(pdfPath, outputDir);
+  if (imageSlides.length > 0) {
+    await copyFile(path.join(outputDir, imageSlides[0]), path.join(outputDir, 'thumbnail.png'));
+  } else {
+    await generateThumbnail(pdfPath, outputDir);
+  }
 
   const title = humanizeName(path.basename(sourcePath));
   await writeFile(
     path.join(outputDir, 'index.html'),
-    renderPptxViewerHtml({ title, slideCount }),
+    renderPptxViewerHtml({ title, slideCount, imageSlides }),
     'utf8'
   );
 

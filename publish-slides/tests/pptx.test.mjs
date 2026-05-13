@@ -10,11 +10,17 @@ test('isPptxPath accepts real pptx files and ignores Office lock files', () => {
 });
 
 test('renderPptxViewerHtml preserves original and exposes PDF/Office viewers', () => {
-  const html = renderPptxViewerHtml({ title: '마음AI <WoRV>', slideCount: 11 });
+  const html = renderPptxViewerHtml({
+    title: '마음AI <WoRV>',
+    slideCount: 11,
+    imageSlides: ['slides/slide-001.png', 'slides/slide-002.png']
+  });
   assert.match(html, /마음AI &lt;WoRV&gt;/);
   assert.match(html, /source\.pptx/);
   assert.match(html, /slides\.pdf/);
+  assert.equal(html.includes('slides/slide-001.png'), true);
   assert.match(html, /view\.officeapps\.live\.com/);
   assert.match(html, /11 slides/);
-  assert.match(html, /전체화면/);
+  assert.match(html, /전체/);
+  assert.match(html, /id="slide-image"/);
 });
