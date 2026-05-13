@@ -228,6 +228,7 @@ export async function prepareCanvaDeck(input, outputDir, { title = '' } = {}) {
     titleRel: 'index.html',
     cleanupHtml: false,
     sourceFile: canvaUrl,
-    sourceName: canvaIdFromUrl(canvaUrl) || canvaUrl
+    sourceName: canvaIdFromUrl(canvaUrl) || canvaUrl,
+    title: deckTitle
   };
 }

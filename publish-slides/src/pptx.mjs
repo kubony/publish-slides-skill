@@ -362,6 +362,7 @@ export async function preparePptxDeck(inputPath, outputDir) {
     cleanupHtml: false,
     sourceFile: sourcePath,
     sourceName: path.basename(sourcePath),
+    title,
     sourceMime: PPTX_MIME
   };
 }

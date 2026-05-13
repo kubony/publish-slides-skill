@@ -319,6 +319,9 @@ export function renderHubPage(catalog, config = {}) {
     body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: radial-gradient(circle at top left, rgba(135,245,255,.18), transparent 30rem), var(--bg); color: var(--text); }
     a { color: inherit; }
     header { max-width: 1120px; margin: 0 auto; padding: 64px 24px 28px; }
+    .header-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+    .upload-link { border: 1px solid var(--line); border-radius: 999px; padding: 10px 14px; color: var(--text); background: rgba(255,255,255,.06); text-decoration: none; font-size: 14px; font-weight: 850; white-space: nowrap; }
+    .upload-link:hover { border-color: rgba(135,245,255,.65); background: rgba(135,245,255,.12); }
     .eyebrow { color: var(--accent); font-size: 13px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }
     h1 { margin: 12px 0 12px; font-size: clamp(40px, 7vw, 84px); line-height: .92; letter-spacing: -.06em; }
     header p { max-width: 720px; color: var(--muted); font-size: 18px; line-height: 1.6; }
@@ -349,7 +352,10 @@ export function renderHubPage(catalog, config = {}) {
 </head>
 <body>
   <header>
-    <div class="eyebrow">publish-slides hub</div>
+    <div class="header-top">
+      <div class="eyebrow">publish-slides hub</div>
+      <a class="upload-link" href="/upload.html">Upload slides</a>
+    </div>
     <h1>${escapeHtml(title)}</h1>
     <p>${escapeHtml(description)}</p>
   </header>

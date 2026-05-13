@@ -200,6 +200,7 @@ export async function prepareGoogleSlidesDeck(input, outputDir, { title = '' } =
     titleRel: 'index.html',
     cleanupHtml: false,
     sourceFile: urls.embedUrl,
-    sourceName: urls.id
+    sourceName: urls.id,
+    title: deckTitle
   };
 }
