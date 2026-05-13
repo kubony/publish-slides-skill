@@ -1,7 +1,7 @@
 {
   "name": "publish-slides-skill",
   "version": "0.1.0",
-  "description": "Codex/Claude skill for publishing local HTML slide decks or PPTX files to slides.worvgrip.com.",
+  "description": "Codex/Claude skill for publishing local HTML slide decks, PPTX files, or Canva links to slides.worvgrip.com.",
   "type": "module",
   "bin": {
     "publish-slides": "./scripts/publish-slides.mjs"
@@ -16,6 +16,7 @@
     "slides",
     "html-slides",
     "pptx",
+    "canva",
     "gcs",
     "worvgrip"
   ],

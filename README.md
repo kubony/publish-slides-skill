@@ -1,12 +1,12 @@
 # publish-slides-skill
 
-Codex/Claude Code skill for publishing local HTML slide decks or PPTX files to the WoRV Grip public gallery without giving users GCS permissions.
+Codex/Claude Code skill for publishing local HTML slide decks, PPTX files, or Canva links to the WoRV Grip public gallery without giving users GCS permissions.
 
 - Gallery: https://slides.worvgrip.com/index.html
 - Hosted upload API: https://publish-slides-api-329120583532.asia-northeast3.run.app
 - Bucket behind the API: `gs://ainative-worvgrip-slides`
 
-The repository contains a self-contained skill in `publish-slides/`: it bundles the publisher CLI, default public API config, and detection/cleanup/PPTX-viewer/upload logic.
+The repository contains a self-contained skill in `publish-slides/`: it bundles the publisher CLI, default public API config, and detection/cleanup/PPTX-viewer/Canva-wrapper/upload logic.
 
 ## Install for Codex
 
@@ -59,9 +59,10 @@ Direct CLI:
 ```bash
 node ~/.codex/skills/publish-slides/scripts/publish-slides.mjs /path/to/my/deck
 node ~/.codex/skills/publish-slides/scripts/publish-slides.mjs "/path/to/마음AI WoRV 소개.pptx"
+node ~/.codex/skills/publish-slides/scripts/publish-slides.mjs --title "Canva deck" "https://www.canva.com/design/DACHZTlgWkU/view"
 ```
 
-Optional metadata is not required. The CLI auto-fills title, author, tags, and slug. PPTX files are not rebuilt as HTML; the skill uploads the original file as `source.pptx`, creates `slides.pdf`, and serves an `index.html` viewer with PDF fullscreen plus a PowerPoint Online link.
+Optional metadata is not required. The CLI auto-fills title, author, tags, and slug. PPTX files are not rebuilt as HTML; the skill uploads the original file as `source.pptx`, creates `slides.pdf`, and serves an `index.html` viewer with PDF fullscreen plus a PowerPoint Online link. Canva links are published as a lightweight iframe wrapper; the Canva design must be public/viewable by link.
 
 Stable republish/update from the same machine:
 
@@ -86,4 +87,5 @@ cd publish-slides
 npm test
 node scripts/publish-slides.mjs --dry-run /path/to/deck
 node scripts/publish-slides.mjs --dry-run "/path/to/deck.pptx"
+node scripts/publish-slides.mjs --dry-run "https://www.canva.com/design/DACHZTlgWkU/view"
 ```

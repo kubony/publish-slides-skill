@@ -15,14 +15,18 @@ const THUMBNAIL_CANDIDATES = [
   'thumbnail.jpg',
   'thumbnail.jpeg',
   'thumbnail.webp',
+  'thumbnail.svg',
   'cover.png',
   'cover.jpg',
   'cover.jpeg',
   'cover.webp',
+  'cover.svg',
   'slides/thumbnail.png',
   'slides/thumbnail.jpg',
+  'slides/thumbnail.svg',
   'slides/cover.png',
-  'slides/cover.jpg'
+  'slides/cover.jpg',
+  'slides/cover.svg'
 ];
 
 async function exists(filePath) {

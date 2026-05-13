@@ -11,6 +11,7 @@ import {
   uploadFilesToSignedUrls,
   uploadModeForConfig
 } from '../src/api-upload.mjs';
+import { isCanvaInput, prepareCanvaDeck } from '../src/canva.mjs';
 import { cleanStagedHtml } from '../src/clean.mjs';
 import { defaultAuthor } from '../src/defaults.mjs';
 import { detectDeck, urlForEntry, UserFacingError } from '../src/detect.mjs';
@@ -32,10 +33,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '..');
 
 function usage() {
-  return `Usage: publish-slides [options] <deck-dir|pptx-file>
+  return `Usage: publish-slides [options] <deck-dir|pptx-file|canva-url>
 
-Publishes an HTML slide deck folder, or a .pptx file as an original PPTX plus PDF
-viewer, to configured hosting, then updates the central catalog and hub page.
+Publishes an HTML slide deck folder, a .pptx file, or a Canva link to configured
+hosting, then updates the central catalog and hub page.
 
 Options:
   By default, title comes from deck HTML/folder name, author comes from
@@ -187,7 +188,9 @@ async function main() {
 
   try {
     let deck;
-    if (isPptxPath(options.deckPath)) {
+    if (isCanvaInput(options.deckPath)) {
+      deck = await prepareCanvaDeck(options.deckPath, stageDir, { title: options.title });
+    } else if (isPptxPath(options.deckPath)) {
       deck = await preparePptxDeck(options.deckPath, stageDir);
     } else {
       deck = await detectDeck(options.deckPath);
