@@ -8,6 +8,10 @@ import { contentTypeForPath, listFiles } from '../src/files.mjs';
 test('contentTypeForPath maps common deck asset extensions', () => {
   assert.equal(contentTypeForPath('index.html'), 'text/html');
   assert.equal(contentTypeForPath('slides/assets/demo.mp4'), 'video/mp4');
+  assert.equal(
+    contentTypeForPath('source.pptx'),
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+  );
   assert.equal(contentTypeForPath('slides/assets/unknown.bin'), 'application/octet-stream');
 });
 

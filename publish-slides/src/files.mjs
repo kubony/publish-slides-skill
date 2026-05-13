@@ -27,7 +27,8 @@ const CONTENT_TYPES = new Map([
   ['.woff2', 'font/woff2'],
   ['.ttf', 'font/ttf'],
   ['.otf', 'font/otf'],
-  ['.pdf', 'application/pdf']
+  ['.pdf', 'application/pdf'],
+  ['.pptx', 'application/vnd.openxmlformats-officedocument.presentationml.presentation']
 ]);
 
 export function contentTypeForPath(filePath) {

@@ -190,7 +190,7 @@ export async function buildCatalogEntry({ config, deck, slug, url, options = {},
     format: deck.format,
     layout: deck.layout,
     slideCount: deck.slideCount,
-    sourceName: path.basename(deck.sourceDir),
+    sourceName: deck.sourceName || path.basename(deck.sourceDir),
     createdAt: existingEntry?.createdAt || nowIso,
     updatedAt: nowIso
   };

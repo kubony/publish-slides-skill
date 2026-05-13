@@ -24,6 +24,7 @@ import {
   renderHubPage,
   upsertCatalogEntry
 } from '../src/hub.mjs';
+import { isPptxPath, preparePptxDeck } from '../src/pptx.mjs';
 import { randomSlug, validateSlug } from '../src/slug.mjs';
 import { ensureGcloudReady, readObjectText, slugExists, uploadStage, uploadTextObject } from '../src/upload.mjs';
 
@@ -31,10 +32,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '..');
 
 function usage() {
-  return `Usage: publish-slides [options] <deck-dir>
+  return `Usage: publish-slides [options] <deck-dir|pptx-file>
 
-Publishes an HTML slide deck folder to configured GCS static hosting, then updates
-the central catalog and generated hub page.
+Publishes an HTML slide deck folder, or a .pptx file as an original PPTX plus PDF
+viewer, to configured hosting, then updates the central catalog and hub page.
 
 Options:
   By default, title comes from deck HTML/folder name, author comes from
@@ -173,7 +174,6 @@ async function main() {
   }
 
   const { config, configPath } = await loadConfig(options.configPath);
-  const deck = await detectDeck(options.deckPath);
   options.author = await defaultAuthor({ explicitAuthor: options.author, config, cwd: process.cwd() });
   if (!options.dryRun) {
     const mode = uploadModeForConfig(config, options.uploadMode);
@@ -186,7 +186,13 @@ async function main() {
   const stageDir = await mkdtemp(path.join(os.tmpdir(), 'publish-slides-'));
 
   try {
-    await cp(deck.sourceDir, stageDir, { recursive: true, force: true });
+    let deck;
+    if (isPptxPath(options.deckPath)) {
+      deck = await preparePptxDeck(options.deckPath, stageDir);
+    } else {
+      deck = await detectDeck(options.deckPath);
+      await cp(deck.sourceDir, stageDir, { recursive: true, force: true });
+    }
     const cleanedFiles = deck.cleanupHtml ? await cleanStagedHtml(stageDir) : 0;
     const mode = uploadModeForConfig(config, options.uploadMode);
     let apiUpload = null;
@@ -247,7 +253,8 @@ async function main() {
       uploadMode: mode,
       apiEndpoint: mode === 'api' ? (config.upload?.apiEndpoint || process.env.PUBLISH_SLIDES_API_URL || null) : null,
       configPath,
-      sourceDir: deck.sourceDir,
+      sourcePath: deck.sourceFile || deck.sourceDir,
+      sourceDir: deck.sourceFile ? null : deck.sourceDir,
       format: deck.format,
       layout: deck.layout,
       slideCount: deck.slideCount,
