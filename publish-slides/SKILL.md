@@ -1,21 +1,22 @@
 ---
 name: publish-slides
-description: Publish a local HTML slide deck folder, PPTX file, or Canva link to the WoRV Grip public slide hub at slides.worvgrip.com without requiring the user to have GCS permissions. The skill uploads videos/assets through the hosted publish-slides Cloud Run API, updates the shared gallery catalog, and returns shareable deck and gallery URLs. Use when the user says publish-slides, publish slides, share this deck, upload this deck, deploy deck, or asks to put an HTML/slides-grab/PPTX/Canva presentation on slides.worvgrip.com.
+description: Publish a local HTML slide deck folder, PPTX file, Canva link, or Google Slides link to the WoRV Grip public slide hub at slides.worvgrip.com without requiring the user to have GCS permissions. The skill uploads videos/assets through the hosted publish-slides Cloud Run API, updates the shared gallery catalog, and returns shareable deck and gallery URLs. Use when the user says publish-slides, publish slides, share this deck, upload this deck, deploy deck, or asks to put an HTML/slides-grab/PPTX/Canva/Google Slides presentation on slides.worvgrip.com.
 ---
 
 # publish-slides
 
-Publish a local HTML slide deck, PPTX file, or Canva link to the shared WoRV Grip slide hub.
+Publish a local HTML slide deck, PPTX file, Canva link, or Google Slides link to the shared WoRV Grip slide hub.
 
 ## Workflow
 
-1. Resolve the deck folder, PPTX file path, or Canva URL from the user's request.
+1. Resolve the deck folder, PPTX file path, Canva URL, or Google Slides URL from the user's request.
 2. Do not require title, author, filename, or tags. The bundled CLI fills defaults:
    - title from deck HTML or folder name
    - author from config/env/git/OS user
    - tags from configured defaults plus detected deck format
    - PPTX files are kept as the original `.pptx` and paired with a generated PDF web viewer instead of being rebuilt as HTML.
    - Canva links are kept hosted by Canva and published as a simple iframe wrapper.
+   - Google Slides links are kept hosted by Google and published as a simple iframe wrapper.
 3. Locate this skill directory and run the bundled CLI:
 
    ```bash
@@ -46,7 +47,8 @@ Publish a local HTML slide deck, PPTX file, or Canva link to the shared WoRV Gri
 - A `slides` folder containing `slide-*.html`
 - A generic folder with `index.html` or `viewer.html`
 - A single `.pptx` file. This requires LibreOffice/`soffice` locally so the CLI can generate `slides.pdf` and a gallery thumbnail. The original PPTX is uploaded as `source.pptx`.
-- A Canva `https://www.canva.com/design/.../view` URL or iframe embed code. The design must be public/viewable by link for visitors to see it.
+- A Canva `https://www.canva.com/design/.../view` URL, `https://canva.link/...` short link, or iframe embed code. The design must be public/viewable by link for visitors to see it.
+- A Google Slides `https://docs.google.com/presentation/d/...` URL or iframe embed code. The deck must be public/shared with visitors.
 
 ## Publishing target
 

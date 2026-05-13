@@ -3,11 +3,18 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { canvaUrlFromInput, isCanvaInput, prepareCanvaDeck, renderCanvaViewerHtml } from '../src/canva.mjs';
+import {
+  canvaUrlFromInput,
+  canonicalCanvaViewerUrl,
+  isCanvaInput,
+  prepareCanvaDeck,
+  renderCanvaViewerHtml
+} from '../src/canva.mjs';
 
 test('isCanvaInput accepts Canva URLs and iframe embed codes', () => {
   assert.equal(isCanvaInput('https://www.canva.com/design/DACHZTlgWkU/view'), true);
   assert.equal(isCanvaInput('www.canva.com/design/DACHZTlgWkU/view'), true);
+  assert.equal(isCanvaInput('https://canva.link/w84why5jyz3li8s'), true);
   assert.equal(isCanvaInput('<iframe src="https://www.canva.com/design/DACHZTlgWkU/view?embed"></iframe>'), true);
   assert.equal(isCanvaInput('https://example.com/design/DACHZTlgWkU/view'), false);
 });
@@ -18,6 +25,13 @@ test('canvaUrlFromInput normalizes and validates input', () => {
     'https://www.canva.com/design/DACHZTlgWkU/view'
   );
   assert.throws(() => canvaUrlFromInput('http://www.canva.com/design/DACHZTlgWkU/view'), /https/);
+});
+
+test('canonicalCanvaViewerUrl turns edit links into embeddable view links', () => {
+  assert.equal(
+    canonicalCanvaViewerUrl('https://www.canva.com/design/DAG_P29hPt8/qwXnBsGWwSJV-59STS5_qQ/edit?utm_source=sharebutton'),
+    'https://www.canva.com/design/DAG_P29hPt8/qwXnBsGWwSJV-59STS5_qQ/view?embed'
+  );
 });
 
 test('renderCanvaViewerHtml creates a simple slide-like iframe viewer', () => {

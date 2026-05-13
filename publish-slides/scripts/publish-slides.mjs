@@ -25,6 +25,7 @@ import {
   renderHubPage,
   upsertCatalogEntry
 } from '../src/hub.mjs';
+import { isGoogleSlidesInput, prepareGoogleSlidesDeck } from '../src/google-slides.mjs';
 import { isPptxPath, preparePptxDeck } from '../src/pptx.mjs';
 import { randomSlug, validateSlug } from '../src/slug.mjs';
 import { ensureGcloudReady, readObjectText, slugExists, uploadStage, uploadTextObject } from '../src/upload.mjs';
@@ -33,10 +34,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '..');
 
 function usage() {
-  return `Usage: publish-slides [options] <deck-dir|pptx-file|canva-url>
+  return `Usage: publish-slides [options] <deck-dir|pptx-file|canva-url|google-slides-url>
 
-Publishes an HTML slide deck folder, a .pptx file, or a Canva link to configured
-hosting, then updates the central catalog and hub page.
+Publishes an HTML slide deck folder, a .pptx file, a Canva link, or a Google
+Slides link to configured hosting, then updates the central catalog and hub page.
 
 Options:
   By default, title comes from deck HTML/folder name, author comes from
@@ -190,6 +191,8 @@ async function main() {
     let deck;
     if (isCanvaInput(options.deckPath)) {
       deck = await prepareCanvaDeck(options.deckPath, stageDir, { title: options.title });
+    } else if (isGoogleSlidesInput(options.deckPath)) {
+      deck = await prepareGoogleSlidesDeck(options.deckPath, stageDir, { title: options.title });
     } else if (isPptxPath(options.deckPath)) {
       deck = await preparePptxDeck(options.deckPath, stageDir);
     } else {

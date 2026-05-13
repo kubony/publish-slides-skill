@@ -20,17 +20,6 @@ function decodeHtmlEntities(value) {
     .replace(/&gt;/g, '>');
 }
 
-function canvaHost(hostname) {
-  const host = String(hostname || '').toLowerCase();
-  return (
-    host === 'canva.com' ||
-    host.endsWith('.canva.com') ||
-    host === 'canva.site' ||
-    host.endsWith('.canva.site') ||
-    host === 'canva.link'
-  );
-}
-
 function extractUrlText(input) {
   const raw = String(input || '').trim();
   const iframeSrc = raw.match(/<iframe\b[^>]*\bsrc\s*=\s*(["'])(.*?)\1/i);
@@ -38,12 +27,9 @@ function extractUrlText(input) {
   return decodeHtmlEntities(candidate).trim();
 }
 
-export function canvaUrlFromInput(input) {
+export function googleSlidesUrlFromInput(input) {
   let candidate = extractUrlText(input);
-  if (/^(?:www\.)?canva\.(?:com|site)\//i.test(candidate)) {
-    candidate = `https://${candidate}`;
-  }
-  if (/^[a-z0-9-]+\.canva\.(?:com|site)\//i.test(candidate)) {
+  if (/^docs\.google\.com\/presentation\//i.test(candidate)) {
     candidate = `https://${candidate}`;
   }
 
@@ -51,107 +37,91 @@ export function canvaUrlFromInput(input) {
   try {
     url = new URL(candidate);
   } catch {
-    throw new UserFacingError('Canva input must be a Canva https URL or an iframe embed code with a Canva src.');
+    throw new UserFacingError('Google Slides input must be a docs.google.com presentation URL or iframe embed code.');
   }
   if (url.protocol !== 'https:') {
-    throw new UserFacingError('Canva links must use https.');
+    throw new UserFacingError('Google Slides links must use https.');
   }
-  if (!canvaHost(url.hostname)) {
-    throw new UserFacingError(`Not a Canva URL: ${url.hostname}`);
+  if (url.hostname.toLowerCase() !== 'docs.google.com') {
+    throw new UserFacingError(`Not a Google Slides URL: ${url.hostname}`);
+  }
+  if (!/^\/presentation\/d(?:\/e)?\//i.test(url.pathname)) {
+    throw new UserFacingError('Google Slides URL must be under /presentation/d/ or /presentation/d/e/.');
   }
   return url.href;
 }
 
-export function isCanvaInput(input) {
+export function isGoogleSlidesInput(input) {
   try {
-    canvaUrlFromInput(input);
+    googleSlidesUrlFromInput(input);
     return true;
   } catch {
     return false;
   }
 }
 
-export function canonicalCanvaViewerUrl(canvaUrl) {
-  const url = new URL(canvaUrl);
-  const designMatch = url.pathname.match(/^\/design\/([^/]+)\/([^/]+)\/(?:edit|view)\/?$/i);
-  if (!designMatch) return url.href;
-
-  const canonical = new URL(`https://www.canva.com/design/${designMatch[1]}/${designMatch[2]}/view`);
-  canonical.search = 'embed';
-  return canonical.href;
+function slideIdFromUrl(url) {
+  const searchSlide = url.searchParams.get('slide');
+  if (searchSlide) return searchSlide;
+  const hash = decodeURIComponent(url.hash || '');
+  return hash.match(/slide=([^&]+)/)?.[1] || '';
 }
 
-async function resolveCanvaUrl(input) {
-  const canvaUrl = canvaUrlFromInput(input);
-  const url = new URL(canvaUrl);
-  if (url.hostname.toLowerCase() !== 'canva.link') return canonicalCanvaViewerUrl(canvaUrl);
+export function canonicalGoogleSlidesUrls(input) {
+  const originalUrl = googleSlidesUrlFromInput(input);
+  const url = new URL(originalUrl);
+  const published = url.pathname.match(/^\/presentation\/d\/e\/([^/]+)/i);
+  const normal = url.pathname.match(/^\/presentation\/d\/([^/]+)/i);
+  const id = published?.[1] || normal?.[1] || '';
+  if (!id) throw new UserFacingError('Could not extract Google Slides presentation id.');
 
-  let response;
-  try {
-    response = await fetch(canvaUrl, {
-      method: 'HEAD',
-      redirect: 'manual',
-      signal: AbortSignal.timeout(10_000)
-    });
-  } catch (headError) {
-    try {
-      response = await fetch(canvaUrl, {
-        method: 'GET',
-        redirect: 'manual',
-        signal: AbortSignal.timeout(10_000)
-      });
-    } catch {
-      throw new UserFacingError(`Could not resolve Canva short link: ${headError.message}`);
-    }
-  }
+  const embedPath = published
+    ? `/presentation/d/e/${id}/embed`
+    : `/presentation/d/${id}/embed`;
+  const embedUrl = new URL(`https://docs.google.com${embedPath}`);
+  embedUrl.searchParams.set('start', 'false');
+  embedUrl.searchParams.set('loop', 'false');
+  embedUrl.searchParams.set('delayms', '3000');
+  const slideId = slideIdFromUrl(url);
+  if (slideId) embedUrl.searchParams.set('slide', slideId);
 
-  const location = response.headers.get('location');
-  if (!location) {
-    throw new UserFacingError('Canva short link did not provide a redirect target.');
-  }
-  const resolved = new URL(location, canvaUrl).href;
-  return canonicalCanvaViewerUrl(canvaUrlFromInput(resolved));
+  return {
+    id,
+    originalUrl,
+    embedUrl: embedUrl.href
+  };
 }
 
-function canvaIdFromUrl(canvaUrl) {
-  const url = new URL(canvaUrl);
-  const match = url.pathname.match(/\/design\/([^/]+)/i);
-  return match?.[1] || '';
+function titleFromGoogleSlidesId(id) {
+  return `Google Slides ${String(id || '').slice(0, 10) || 'deck'}`;
 }
 
-function titleFromCanvaUrl(canvaUrl) {
-  const id = canvaIdFromUrl(canvaUrl);
-  return id ? `Canva ${id}` : 'Canva design';
-}
-
-function renderCanvaThumbnailSvg(title) {
+function renderGoogleSlidesThumbnailSvg(title) {
   const safeTitle = escapeHtml(title);
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-label="${safeTitle}">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#00c4cc"/>
-      <stop offset=".48" stop-color="#7d2ae8"/>
-      <stop offset="1" stop-color="#ff66c4"/>
-    </linearGradient>
-  </defs>
-  <rect width="1280" height="720" rx="42" fill="url(#bg)"/>
-  <circle cx="1016" cy="120" r="180" fill="rgba(255,255,255,.14)"/>
-  <circle cx="190" cy="612" r="240" fill="rgba(255,255,255,.10)"/>
-  <text x="96" y="326" fill="white" font-family="Inter, Arial, sans-serif" font-size="80" font-weight="900" letter-spacing="-4">Canva</text>
-  <text x="96" y="410" fill="rgba(255,255,255,.82)" font-family="Inter, Arial, sans-serif" font-size="40" font-weight="700">${safeTitle}</text>
+  <rect width="1280" height="720" rx="42" fill="#f8fafd"/>
+  <rect x="88" y="88" width="1104" height="544" rx="30" fill="#fff" stroke="#dde5f2" stroke-width="8"/>
+  <rect x="168" y="168" width="380" height="64" rx="18" fill="#fbbc04"/>
+  <rect x="168" y="280" width="944" height="32" rx="16" fill="#e8eef8"/>
+  <rect x="168" y="340" width="720" height="32" rx="16" fill="#e8eef8"/>
+  <circle cx="1010" cy="210" r="76" fill="#4285f4"/>
+  <circle cx="1082" cy="292" r="52" fill="#34a853"/>
+  <text x="168" y="510" fill="#1f2937" font-family="Inter, Arial, sans-serif" font-size="54" font-weight="900" letter-spacing="-2">Google Slides</text>
+  <text x="168" y="574" fill="#64748b" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="700">${safeTitle}</text>
 </svg>
 `;
 }
 
-export function renderCanvaViewerHtml({ title, canvaUrl } = {}) {
-  const safeTitle = escapeHtml(title || 'Canva design');
-  const safeUrl = escapeHtml(canvaUrl);
+export function renderGoogleSlidesViewerHtml({ title, embedUrl, originalUrl } = {}) {
+  const safeTitle = escapeHtml(title || 'Google Slides');
+  const safeEmbedUrl = escapeHtml(embedUrl);
+  const safeOriginalUrl = escapeHtml(originalUrl || embedUrl);
   return `<!doctype html>
 <html lang="ko">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="publish-slides-format" content="canva">
+  <meta name="publish-slides-format" content="google-slides">
   <title>${safeTitle}</title>
   <style>
     :root { color-scheme: dark; --bg: #070a12; --line: rgba(255,255,255,.14); --text: #edf2ff; --muted: #9aa7bd; }
@@ -168,7 +138,6 @@ export function renderCanvaViewerHtml({ title, canvaUrl } = {}) {
     .stage { width: 100vw; height: 100vh; display: grid; place-items: center; padding: 58px 24px 24px; }
     .slide { width: min(100%, calc((100vh - 92px) * 16 / 9)); max-width: 1600px; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; background: #fff; box-shadow: 0 28px 90px rgba(0,0,0,.45); }
     iframe { width: 100%; height: 100%; border: 0; display: block; background: white; }
-    .fallback { padding: 28px; color: #253047; font-weight: 700; }
     body:fullscreen .stage, .stage:fullscreen { padding: 0; background: #000; }
     body:fullscreen .slide, .stage:fullscreen .slide { width: 100vw; height: 100vh; max-width: none; border-radius: 0; box-shadow: none; }
     @media (max-width: 720px) {
@@ -182,16 +151,15 @@ export function renderCanvaViewerHtml({ title, canvaUrl } = {}) {
 </head>
 <body>
   <div class="topbar">
-    <div class="title" title="${safeTitle}">${safeTitle}<small>Canva</small></div>
+    <div class="title" title="${safeTitle}">${safeTitle}<small>Google Slides</small></div>
     <nav class="actions" aria-label="presentation actions">
-      <a class="button" href="${safeUrl}" target="_blank" rel="noopener">Canva</a>
+      <a class="button" href="${safeOriginalUrl}" target="_blank" rel="noopener">Slides</a>
       <button id="fullscreen" type="button">전체</button>
     </nav>
   </div>
   <main class="stage" id="stage">
     <section class="slide" aria-label="${safeTitle}">
-      <iframe src="${safeUrl}" title="${safeTitle}" allowfullscreen="allowfullscreen" allow="fullscreen" loading="eager"></iframe>
-      <div class="fallback">Canva가 iframe 표시를 막거나 링크가 비공개라면 <a href="${safeUrl}" target="_blank" rel="noopener">Canva에서 직접 열어주세요.</a></div>
+      <iframe src="${safeEmbedUrl}" title="${safeTitle}" allowfullscreen="true" mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
     </section>
   </main>
   <script>
@@ -212,22 +180,26 @@ export function renderCanvaViewerHtml({ title, canvaUrl } = {}) {
 `;
 }
 
-export async function prepareCanvaDeck(input, outputDir, { title = '' } = {}) {
-  const canvaUrl = await resolveCanvaUrl(input);
-  const deckTitle = title?.trim() || titleFromCanvaUrl(canvaUrl);
+export async function prepareGoogleSlidesDeck(input, outputDir, { title = '' } = {}) {
+  const urls = canonicalGoogleSlidesUrls(input);
+  const deckTitle = title?.trim() || titleFromGoogleSlidesId(urls.id);
   await mkdir(outputDir, { recursive: true });
-  await writeFile(path.join(outputDir, 'index.html'), renderCanvaViewerHtml({ title: deckTitle, canvaUrl }), 'utf8');
-  await writeFile(path.join(outputDir, 'thumbnail.svg'), renderCanvaThumbnailSvg(deckTitle), 'utf8');
+  await writeFile(
+    path.join(outputDir, 'index.html'),
+    renderGoogleSlidesViewerHtml({ title: deckTitle, embedUrl: urls.embedUrl, originalUrl: urls.originalUrl }),
+    'utf8'
+  );
+  await writeFile(path.join(outputDir, 'thumbnail.svg'), renderGoogleSlidesThumbnailSvg(deckTitle), 'utf8');
   return {
-    format: 'canva',
-    layout: 'canva-embed',
+    format: 'google-slides',
+    layout: 'google-slides-embed',
     sourceDir: outputDir,
     slideCount: null,
     entryRel: 'index.html',
     firstSlideRel: 'index.html',
     titleRel: 'index.html',
     cleanupHtml: false,
-    sourceFile: canvaUrl,
-    sourceName: canvaIdFromUrl(canvaUrl) || canvaUrl
+    sourceFile: urls.embedUrl,
+    sourceName: urls.id
   };
 }
